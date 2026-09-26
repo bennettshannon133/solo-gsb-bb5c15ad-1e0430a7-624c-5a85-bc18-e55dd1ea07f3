@@ -77,6 +77,24 @@ function render({ cues, cycle, conflicts }) {
         status = status === '□ 正常' ? mark : `${status}；${mark}`;
       }
 
+      // 最迟允许开始 / 连锁余量：环上及被环阻塞项不可计算；无可达截止约束为不限
+      let latestStartCell;
+      let chainSlackCell;
+      if (!c.scheduled) {
+        latestStartCell = '<span class="t-uncomputable">不可计算</span>';
+        chainSlackCell = '<span class="t-uncomputable">不可计算</span>';
+      } else if (c.latestStart == null) {
+        latestStartCell = '不限';
+        chainSlackCell = '不限';
+      } else {
+        const slackCls =
+          c.chainSlack < 0 ? 't-chain-neg' : c.chainSlack === 0 ? 't-chain-zero' : '';
+        latestStartCell = `<span class="${c.chainSlack < 0 ? 't-chain-neg' : ''}">${CS.fmtTimeSigned(
+          c.latestStart
+        )}</span>`;
+        chainSlackCell = `<span class="${slackCls}">${CS.fmtDur(c.chainSlack)}</span>`;
+      }
+
       return `<tr class="${rowCls}">
         <td>${i + 1}</td>
         <td>${CS.esc(c.ref || `#${c.id}`)}</td>
@@ -87,6 +105,8 @@ function render({ cues, cycle, conflicts }) {
           c.scheduled ? CS.fmtTime(c.earliestFinish) : '—'
         }</td>
         <td class="num">${c.maxFinish == null ? '不限' : CS.fmtTime(c.maxFinish)}</td>
+        <td class="num">${latestStartCell}</td>
+        <td class="num">${chainSlackCell}</td>
         <td>${pres}</td>
         <td>${actors}</td>
         <td>${status}</td>

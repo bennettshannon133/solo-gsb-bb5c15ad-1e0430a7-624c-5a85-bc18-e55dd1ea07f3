@@ -1,7 +1,7 @@
 {
   "name": "cue-scheduler",
   "version": "1.0.0",
-  "description": "小剧场走台排程 Web 应用：按提示点依赖关系自动计算最早开始/结束时间，检测环依赖与超时项目",
+  "description": "小剧场走台排程 Web 应用：按提示点依赖关系自动计算最早开始/结束时间，逆推最迟允许开始与连锁余量，检测环依赖与超时项目",
   "main": "src/server.js",
   "type": "commonjs",
   "engines": {

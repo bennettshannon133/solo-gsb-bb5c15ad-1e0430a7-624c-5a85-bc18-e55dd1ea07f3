@@ -5,7 +5,12 @@
  * - 以“秒”为最小单位计算时间
  * - earliestStart(cue) = max(用户录入的最早开始时间, 所有前置提示点的结束时间)
  * - earliestFinish = earliestStart + duration
- * - 环依赖：Tarjan SCC 找出环上全部提示点，Kahn 算法找出被环阻塞的提示点
+ * - 逆推：从有最晚完成时间的提示点沿依赖图反向递推
+ *   latestFinish = min(自身最晚完成, 所有后继的最迟允许开始)
+ *   latestStart = latestFinish - duration；连锁余量 chainSlack = latestStart - earliestStart
+ *   无任何可达截止约束的项 latestStart / chainSlack 为 null（显示“不限”）
+ * - 环依赖：Tarjan SCC 找出环上全部提示点，Kahn 算法找出被环阻塞的提示点；
+ *   环上及被环阻塞项不参与正/反向计算，最迟开始与连锁余量为 null（显示“不可计算”）
  * - 超时：计算结果晚于最晚完成时间时标记
  * - 演员冲突：同一演员被分到时间重叠的提示点时标出（仅已成功排程者参与；
  *   结束恰好等于另一项开始不算冲突；环上及被阻塞项无有效时间，不参与检查）
@@ -99,12 +104,14 @@ function schedule(inputCues) {
   const start = new Map();
   const finish = new Map();
   const queue = [];
+  const topoOrder = []; // Kahn 出队顺序即拓扑序（逆序用于反向递推）
   for (const [id, deg] of indegree) {
     if (deg === 0) queue.push(id);
   }
 
   while (queue.length) {
     const id = queue.shift();
+    topoOrder.push(id);
     const c = cues.get(id);
     let es = c.minStart;
     for (const preId of c.prerequisites) {
@@ -140,6 +147,29 @@ function schedule(inputCues) {
     }
   }
 
+  /* ---------- 反向递推：最迟允许开始与连锁余量 ----------
+   * 仅对已成功排程（不在环上、未被环阻塞）的提示点计算：
+   * latestFinish(u) = min(自身 maxFinish?, 所有已排程后继 v 的 latestStart(v))
+   * latestStart(u)  = latestFinish(u) - duration(u)
+   * 自身与所有下游截止共同限制，分支取最紧（最小）约束；
+   * 无任何可达截止约束时 latestFinish 仍为 Infinity → latestStart/chainSlack 为 null（“不限”）。
+   * 指向环上或被环阻塞后继的边忽略：那些边不携带可计算的截止约束。
+   */
+  const latestStartMap = new Map();
+  for (let k = topoOrder.length - 1; k >= 0; k--) {
+    const id = topoOrder[k];
+    const c = cues.get(id);
+    let lf = c.maxFinish != null ? c.maxFinish : Infinity;
+    for (const succId of successors.get(id)) {
+      // 环上 / 被环阻塞的后继没有有效时间，不能反推约束
+      if (cyclic.has(succId) || blocked.has(succId)) continue;
+      const ls = latestStartMap.get(succId);
+      if (ls == null) continue; // 该后继无可达截止约束
+      lf = Math.min(lf, ls);
+    }
+    if (Number.isFinite(lf)) latestStartMap.set(id, lf - c.duration);
+  }
+
   /* ---------- 组装结果 ---------- */
   const results = [];
   for (const c of cues.values()) {
@@ -160,6 +190,12 @@ function schedule(inputCues) {
       prerequisites: c.prerequisites.filter((p) => cues.has(p)),
       earliestStart: es,
       earliestFinish: ef,
+      // 最迟允许开始 / 连锁余量：null 时由前端按 scheduled 区分“不可计算”与“不限”
+      latestStart: scheduled && latestStartMap.has(c.id) ? latestStartMap.get(c.id) : null,
+      chainSlack:
+        scheduled && latestStartMap.has(c.id)
+          ? latestStartMap.get(c.id) - es
+          : null,
       inCycle: isCyclic,
       blockedByCycle: isBlocked,
       scheduled,

@@ -13,17 +13,26 @@ window.CS = {
     return [hh, mm, ss].map((n) => String(n).padStart(2, '0')).join(':');
   },
 
-  /** 时长 -> H:MM:SS 或 M:SS */
+  /** 秒 -> HH:MM:SS；保留负号（最迟允许开始可能为负，表示截止时间已不可满足） */
+  fmtTimeSigned(totalSeconds) {
+    if (totalSeconds == null) return '—';
+    const abs = this.fmtTime(Math.abs(totalSeconds));
+    return totalSeconds < 0 ? `-${abs}` : abs;
+  },
+
+  /** 时长 -> H:MM:SS 或 M:SS，保留负号（连锁余量可为负，暴露已不可满足的截止时间） */
   fmtDur(totalSeconds) {
     if (totalSeconds == null) return '—';
+    const neg = totalSeconds < 0;
     const s = Math.max(0, Math.round(totalSeconds));
     const h = Math.floor(s / 3600);
     const m = Math.floor((s % 3600) / 60);
     const ss = s % 60;
-    if (h > 0) {
-      return `${h}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
-    }
-    return `${m}:${String(ss).padStart(2, '0')}`;
+    const text =
+      h > 0
+        ? `${h}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
+        : `${m}:${String(ss).padStart(2, '0')}`;
+    return neg ? `-${text}` : text;
   },
 
   esc(text) {

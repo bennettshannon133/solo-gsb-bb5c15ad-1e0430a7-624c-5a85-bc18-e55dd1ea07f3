@@ -190,6 +190,17 @@ h1, h2 { margin: 0; }
 .t-overdue { color: var(--danger-ink); font-weight: 700; }
 .t-slack-neg { color: var(--danger-ink); font-weight: 600; }
 .t-slack-zero { color: var(--warn-ink); font-weight: 600; }
+/* 连锁余量：负数=截止时间已不可满足（红），零=再延后即突破（琥珀） */
+.t-chain-neg { color: var(--danger-ink); font-weight: 700; }
+.t-chain-zero { color: var(--warn-ink); font-weight: 700; }
+.t-uncomputable {
+  color: var(--muted);
+  font-size: 12px;
+  background: #f4f1ec;
+  border-radius: 4px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
 
 .pres { display: flex; gap: 4px; flex-wrap: wrap; }
 .pre-tag {
@@ -410,7 +421,7 @@ tr.row-sim-affected:hover { background: #e7eef8; }
   .no-print { display: none !important; }
   .print-sheet { box-shadow: none; max-width: none; padding: 0; margin: 0; }
   .cue-table th { background: #f5f2ec !important; }
-  .badge, .cue-ref, .pre-tag, .actor-tag, .actor-conflict-text, tr.row-overdue, tr.row-cycle, tr.row-conflict {
+  .badge, .cue-ref, .pre-tag, .actor-tag, .actor-conflict-text, .t-chain-neg, .t-chain-zero, tr.row-overdue, tr.row-cycle, tr.row-conflict {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
 }

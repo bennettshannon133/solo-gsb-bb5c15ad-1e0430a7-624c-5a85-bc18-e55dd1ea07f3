@@ -407,6 +407,36 @@ function renderTable() {
               : CS.fmtDur(c.slack)
         : '—';
 
+      // 最迟允许开始 / 连锁余量：环上及被环阻塞项不可计算；无可达截止约束为不限；负值保留暴露死线
+      let latestStartCell;
+      let chainSlackCell;
+      if (!c.scheduled) {
+        latestStartCell = '<span class="t-uncomputable" title="环上或被环阻塞，无法逆推">不可计算</span>';
+        chainSlackCell = '<span class="t-uncomputable" title="环上或被环阻塞，无法计算连锁余量">不可计算</span>';
+      } else if (c.latestStart == null) {
+        latestStartCell = '<span class="hint">不限</span>';
+        chainSlackCell = '<span class="hint">不限</span>';
+      } else {
+        latestStartCell = `<span class="t-time${c.chainSlack < 0 ? ' t-chain-neg' : ''}" title="${
+          c.chainSlack < 0 ? '最迟允许开始早于开排零点，截止时间已不可满足' : '由自身与下游最晚完成逆推得到'
+        }">${CS.fmtTimeSigned(c.latestStart)}</span>`;
+        const slackTitle =
+          c.chainSlack < 0
+            ? '连锁余量为负：当前排程已无法满足自身或下游截止时间'
+            : c.chainSlack === 0
+              ? '连锁余量为零：再延后即突破自身或下游截止时间'
+              : '相对自身或下游最紧截止时间还可延后的时间';
+        const slackCls =
+          c.chainSlack < 0
+            ? 't-chain-neg'
+            : c.chainSlack === 0
+              ? 't-chain-zero'
+              : '';
+        chainSlackCell = `<span class="${slackCls}" title="${slackTitle}">${CS.fmtDur(
+          c.chainSlack
+        )}</span>`;
+      }
+
       const timeCell = (value, base) => {
         if (!c.scheduled) return '—';
         if (!affected) return CS.fmtTime(value);
@@ -435,6 +465,8 @@ function renderTable() {
           baseFinish
         )}</td>
         <td class="num t-time">${c.maxFinish == null ? '不限' : CS.fmtTime(c.maxFinish)}</td>
+        <td class="num">${latestStartCell}</td>
+        <td class="num">${chainSlackCell}</td>
         <td class="num">${slackCell}</td>
         <td>${statusBadge(c, affected)}</td>
         <td>
