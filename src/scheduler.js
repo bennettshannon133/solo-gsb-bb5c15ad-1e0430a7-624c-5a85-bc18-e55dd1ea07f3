@@ -7,6 +7,10 @@
  * - earliestFinish = earliestStart + duration
  * - 环依赖：Tarjan SCC 找出环上全部提示点，Kahn 算法找出被环阻塞的提示点
  * - 超时：计算结果晚于最晚完成时间时标记
+ * - 最迟允许开始 / 连锁余量：在可排程 DAG 上从各项的最晚完成时间沿后继边逆向递推，
+ *   latestFinish = min(自身最晚完成(若有), 所有后继的 latestStart)，分支取最紧约束；
+ *   latestStart = latestFinish - duration；连锁余量 = latestStart - earliestStart。
+ *   无可达截止约束为 null（界面显示“不限”）；环上及被环阻塞项不可计算（界面显示“不可计算”）
  * - 演员冲突：同一演员被分到时间重叠的提示点时标出（仅已成功排程者参与；
  *   结束恰好等于另一项开始不算冲突；环上及被阻塞项无有效时间，不参与检查）
  *
@@ -99,12 +103,14 @@ function schedule(inputCues) {
   const start = new Map();
   const finish = new Map();
   const queue = [];
+  const topoOrder = []; // 仅包含成功排程的节点，供逆向递推时保证后继先于前驱
   for (const [id, deg] of indegree) {
     if (deg === 0) queue.push(id);
   }
 
   while (queue.length) {
     const id = queue.shift();
+    topoOrder.push(id);
     const c = cues.get(id);
     let es = c.minStart;
     for (const preId of c.prerequisites) {
@@ -140,6 +146,30 @@ function schedule(inputCues) {
     }
   }
 
+  /* ---------- 逆向递推最迟允许开始（连锁余量） ----------
+   * 仅在可排程节点构成的 DAG 上计算；环上及被环阻塞节点不在 topoOrder 中，
+   * 与其相连的边按无效处理（它们本身显示“不可计算”）。
+   * 截止来源：自身的最晚完成时间 + 所有下游（传递可达）的最晚完成时间；
+   * latestFinish(v) = min( maxFinish(v)（若有）, min{latestStart(succ)} )，
+   * 分支取最紧约束；latestStart(v) = latestFinish(v) - duration(v)；
+   * 没有任何可达截止约束时 latestStart 为 null（显示“不限”）。
+   */
+  const latestFinish = new Map();
+  for (let k = topoOrder.length - 1; k >= 0; k--) {
+    const id = topoOrder[k];
+    const c = cues.get(id);
+    let lf = c.maxFinish; // null 表示自身无截止约束
+    for (const succId of successors.get(id)) {
+      // 环上 / 被环阻塞的后继无有效最迟时间，不构成约束
+      if (!latestFinish.has(succId)) continue;
+      const succLf = latestFinish.get(succId);
+      if (succLf == null) continue; // 该后继本身没有任何可达截止约束
+      const succLatestStart = succLf - cues.get(succId).duration;
+      lf = lf == null ? succLatestStart : Math.min(lf, succLatestStart);
+    }
+    latestFinish.set(id, lf);
+  }
+
   /* ---------- 组装结果 ---------- */
   const results = [];
   for (const c of cues.values()) {
@@ -148,6 +178,8 @@ function schedule(inputCues) {
     const scheduled = !isCyclic && !isBlocked;
     const es = scheduled ? start.get(c.id) : null;
     const ef = scheduled ? finish.get(c.id) : null;
+    const lf = scheduled ? latestFinish.get(c.id) : null;
+    const ls = scheduled && lf != null ? lf - c.duration : null;
 
     results.push({
       id: c.id,
@@ -165,6 +197,8 @@ function schedule(inputCues) {
       scheduled,
       overdue: scheduled && c.maxFinish != null && ef > c.maxFinish,
       slack: scheduled && c.maxFinish != null ? c.maxFinish - ef : null,
+      latestStart: scheduled ? ls : null,
+      chainSlack: scheduled && ls != null ? ls - es : null,
       conflictActors: [],
     });
   }

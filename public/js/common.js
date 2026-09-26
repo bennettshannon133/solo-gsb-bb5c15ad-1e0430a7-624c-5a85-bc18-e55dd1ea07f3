@@ -13,6 +13,13 @@ window.CS = {
     return [hh, mm, ss].map((n) => String(n).padStart(2, '0')).join(':');
   },
 
+  /** 时间点（秒）-> HH:MM:SS，允许负值（最迟允许开始可能早于开排零点），如 -0:05:00 */
+  fmtTimeSigned(totalSeconds) {
+    if (totalSeconds == null) return '—';
+    const v = Math.round(totalSeconds);
+    return `${v < 0 ? '−' : ''}${this.fmtTime(Math.abs(v))}`;
+  },
+
   /** 时长 -> H:MM:SS 或 M:SS */
   fmtDur(totalSeconds) {
     if (totalSeconds == null) return '—';
@@ -24,6 +31,13 @@ window.CS = {
       return `${h}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
     }
     return `${m}:${String(ss).padStart(2, '0')}`;
+  },
+
+  /** 带符号时长（连锁余量可为负）：负值前缀 -，零显示 0:00 */
+  fmtSigned(totalSeconds) {
+    if (totalSeconds == null) return '—';
+    const v = Math.round(totalSeconds);
+    return `${v < 0 ? '−' : ''}${this.fmtDur(Math.abs(v))}`;
   },
 
   esc(text) {

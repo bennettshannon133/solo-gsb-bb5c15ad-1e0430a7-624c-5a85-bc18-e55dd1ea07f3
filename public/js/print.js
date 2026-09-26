@@ -77,6 +77,23 @@ function render({ cues, cycle, conflicts }) {
         status = status === '□ 正常' ? mark : `${status}；${mark}`;
       }
 
+      // 最迟允许开始 / 连锁余量
+      let latestStart;
+      let chainSlack;
+      if (!c.scheduled) {
+        latestStart = '<span class="t-na">不可计算</span>';
+        chainSlack = '<span class="t-na">不可计算</span>';
+      } else if (c.latestStart == null) {
+        latestStart = '<span class="t-unbounded">不限</span>';
+        chainSlack = '<span class="t-unbounded">不限</span>';
+      } else {
+        latestStart = `<span class="${c.latestStart < 0 ? 't-chain-neg' : ''}">${CS.fmtTimeSigned(
+          c.latestStart
+        )}</span>`;
+        const cls = c.chainSlack < 0 ? 't-chain-neg' : c.chainSlack === 0 ? 't-chain-zero' : '';
+        chainSlack = `<span class="${cls}">${CS.fmtSigned(c.chainSlack)}</span>`;
+      }
+
       return `<tr class="${rowCls}">
         <td>${i + 1}</td>
         <td>${CS.esc(c.ref || `#${c.id}`)}</td>
@@ -87,6 +104,8 @@ function render({ cues, cycle, conflicts }) {
           c.scheduled ? CS.fmtTime(c.earliestFinish) : '—'
         }</td>
         <td class="num">${c.maxFinish == null ? '不限' : CS.fmtTime(c.maxFinish)}</td>
+        <td class="num">${latestStart}</td>
+        <td class="num">${chainSlack}</td>
         <td>${pres}</td>
         <td>${actors}</td>
         <td>${status}</td>
